@@ -1,4 +1,5 @@
 1. Change the paths that GEM5 uses to locate the disk images
+
 <GEM5\_DIRECTORY>/configs/common/SysPaths.py:
 ```
 path = [ ’/dist/m5/system’, ’</path/to/my/disks/and/binaries/folder>’ ]
