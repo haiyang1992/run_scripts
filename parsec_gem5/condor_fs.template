@@ -1,0 +1,21 @@
+Universe = vanilla
+Getenv = True
+Requirements = ((Machine == "tremens.cs.northwestern.edu")  || (Machine == "peroni.cs.northwestern.edu") || (Machine == "guldendraak.cs.northwestern.edu")) && TARGET.IsSuspensionSlot
+
+Rank = TARGET.Mips
+Notification = error
+Copy_To_Spool = False
+Should_Transfer_Files = yes
+When_To_Transfer_Output = ON_EXIT_OR_EVICT
+
+Output = STAGE_TEMPLATE-condor.out
+Error = STAGE_TEMPLATE-condor.err
+Log = STAGE_TEMPLATE-condor.log
+
+InitialDir = INITDIR_TEMPLATE
+Executable = EXECUTABLE_TEMPLATE
+Arguments = ""
+
++IsSuspensionJob = True
+
+Queue

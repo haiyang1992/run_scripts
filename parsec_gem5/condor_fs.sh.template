@@ -1,0 +1,76 @@
+#!/bin/bash
+
+
+GEM5_SIMULATOR=/home/hhu010/tools/gem5/build/X86/gem5.opt
+SIMPOINT_BIN=/project/reconfCache/code/simpoints/SimPoint.3.2/bin/simpoint
+
+
+GEM5_CONF=/home/hhu010/tools/gem5/configs/example/fs.py
+
+STAGE=STAGE_TEMPLATE
+
+cd INITDIR_TEMPLATE
+
+echo "Start `date`"
+
+if [ "${STAGE}" == "init" ]; then
+    ${GEM5_SIMULATOR} -r -d GEM5_OUT_DIR_TEMPLATE GEM5_ARGS_TEMPLATE ${GEM5_CONF} SE_ARGS_TEMPLATE &
+    GEM5_PID=$!
+    ckpt_exists=$(ls CHECKPOINT_DIR_TEMPLATE/cpt.* | wc -l)
+    while [ ${ckpt_exists} == 0 ]; do
+	
+	sleep 60
+	ckpt_exists=$(ls CHECKPOINT_DIR_TEMPLATE/cpt.* | wc -l)
+    done
+    sleep 120
+    kill -9 ${GEM5_PID}
+
+elif [ "${STAGE}" == "mid" ]; then
+
+###
+## Profiling and Generating BBV
+###
+BBV_OUT=GEM5_OUT_DIR_TEMPLATE/bbv
+mkdir -p ${BBV_OUT}
+
+ ${GEM5_SIMULATOR} -r -d ${BBV_OUT}  --dot-config=machine_cfg.dot  ${GEM5_CONF} SE_ARGS_TEMPLATE \
+     --simpoint-profile --simpoint-interval 100000000 --fastmem \
+     --checkpoint-dir CHECKPOINT_DIR_TEMPLATE -r 1
+
+
+###
+## SimPoint Analysis
+###
+SIMPOINT_OUT=GEM5_OUT_DIR_TEMPLATE/analysis
+mkdir -p ${SIMPOINT_OUT}
+
+ ${SIMPOINT_BIN} -loadFVFile ${BBV_OUT}/simpoint.bb.gz -maxK 30 -saveSimpoints ${SIMPOINT_OUT}/simpoint -saveSimpointWeights ${SIMPOINT_OUT}/weights -inputVectorsGzipped
+
+###
+## Taking SimPoint Checkpoints in gem5
+###
+CHECKPOINT_COLLECTION_OUT=GEM5_OUT_DIR_TEMPLATE/chkpnt_clct
+mkdir -p ${CHECKPOINT_COLLECTION_OUT}
+
+${GEM5_SIMULATOR} -r -d ${CHECKPOINT_COLLECTION_OUT}  --dot-config=machine_cfg.dot  ${GEM5_CONF} \
+    --checkpoint-dir CHECKPOINT_DIR_TEMPLATE -r 1 \
+    --take-simpoint-checkpoint=${SIMPOINT_OUT}/simpoint,${SIMPOINT_OUT}/weights,100000000,10000000
+
+
+elif [ "${STAGE}" == "final" ]; then
+
+    CHECKPOINT_COLLECTION_OUT=GEM5_OUT_DIR_TEMPLATE/chkpnt_clct
+    CONF_ID=CONF_ID_TEMPLATE
+    R_NUM=RNUM_TEMPLATE
+    RESUME_OUT=GEM5_OUT_DIR_TEMPLATE/resume/${CONF_ID}/${R_NUM}/
+    rm -r ${RESUME_OUT}
+    mkdir -p ${RESUME_OUT}
+    
+    ${GEM5_SIMULATOR} -r -d ${RESUME_OUT} --dot-config=machine_cfg.dot  ${GEM5_CONF} --restore-simpoint-checkpoint -r ${R_NUM} --checkpoint-dir ${CHECKPOINT_COLLECTION_OUT}  SE_ARGS_TEMPLATE
+
+else
+    echo "[Error] unrecognized stage: ${STAGE}"
+fi
+
+echo "End `date`"
+
